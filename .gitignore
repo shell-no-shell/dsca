@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+target/
+*.tsbuildinfo
+
+# Turbo
+.turbo/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Databases / generated test output
+*.db
+test_project/benchmark_output/
+
+# OS / editor
+.DS_Store
+*.log
+
+# Local tool/editor state
+.claude/
+.antigravitycli/

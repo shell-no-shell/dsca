@@ -1,0 +1,30 @@
+{
+  "name": "ds-code-agent-cli",
+  "version": "1.0.0",
+  "description": "DS-CodeAgent CLI interface",
+  "main": "./dist/index.js",
+  "bin": {
+    "dsca": "./dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsup src/index.tsx --format esm --dts",
+    "dev": "tsup src/index.tsx --format esm --dts --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@dsca/core": "*",
+    "@dsca/tools": "*",
+    "commander": "^12.0.0",
+    "ink": "^4.4.1",
+    "react": "^18.2.0",
+    "chalk": "^5.3.0",
+    "yaml": "^2.4.1",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.65",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.2"
+  }
+}

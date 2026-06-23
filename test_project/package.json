@@ -1,0 +1,21 @@
+{
+  "name": "dsca-test-project",
+  "version": "1.0.0",
+  "description": "Test project for DS-CodeAgent integration testing",
+  "scripts": {
+    "test": "echo 'Tests would run here'",
+    "build": "echo 'Build would run here'"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "^2.12.0",
+    "@stripe/react-stripe-js": "^6.4.0",
+    "@stripe/stripe-js": "^9.7.0",
+    "axios": "^1.16.1",
+    "react-datepicker": "^9.1.0",
+    "react-redux": "^9.3.0",
+    "react-router-dom": "^7.15.1",
+    "react-toastify": "^11.1.0",
+    "recharts": "^3.8.1",
+    "socket.io-client": "^4.8.3"
+  }
+}

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>路由器管理 - 安全设置</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar">
+            <h1>安全设置</h1>
+            <div class="top-bar-right">
+                <span class="online-status">● 在线</span>
+                <span class="username">{{ session.username }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline">退出</a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- 基本安全 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>基本安全设置</h2>
+                </div>
+                <div class="card-body">
+                    <form id="basicSecurityForm" class="form">
+                        <div class="form-group">
+                            <label class="switch-label">
+                                <span>允许远程访问</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" name="remote_access" {{ 'checked' if config.security.remote_access }}>
+                                    <span class="toggle-slider"></span>
+                                </div>
+                            </label>
+                            <span class="form-hint">开启后可通过WAN口访问管理页面</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="switch-label">
+                                <span>禁止Ping响应</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" name="ping_block" {{ 'checked' if config.security.ping_block }}>
+                                    <span class="toggle-slider"></span>
+                                </div>
+                            </label>
+                            <span class="form-hint">开启后路由器将不响应Ping请求</span>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- MAC地址过滤 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>MAC地址过滤</h2>
+                    <p class="card-subtitle">通过MAC地址控制设备访问网络</p>
+                </div>
+                <div class="card-body">
+                    <form id="macFilterForm" class="form">
+                        <div class="form-group">
+                            <label class="switch-label">
+                                <span>启用MAC地址过滤</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="mac_filter_enabled" name="enabled" {{ 'checked' if mac_filter.enabled }}>
+                                    <span class="toggle-slider"></span>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="form-group" id="macFilterMode" style="{{ '' if mac_filter.enabled else 'display:none' }}">
+                            <label>过滤模式</label>
+                            <div class="radio-group">
+                                <label class="radio-label">
+                                    <input type="radio" name="mode" value="allow" {{ 'checked' if mac_filter.mode == 'allow' }}>
+                                    <span>白名单 (仅允许列表中的设备)</span>
+                                </label>
+                                <label class="radio-label">
+                                    <input type="radio" name="mode" value="deny" {{ 'checked' if mac_filter.mode == 'deny' }}>
+                                    <span>黑名单 (禁止列表中的设备)</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">保存MAC过滤设置</button>
+                        </div>
+                    </form>
+
+                    <hr class="divider">
+
+                    <h3>添加MAC地址</h3>
+                    <form id="addMacForm" class="form form-inline">
+                        <div class="form-group">
+                            <input type="text" id="mac_address" name="mac" placeholder="例如: AA:BB:CC:DD:EE:FF" pattern="^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$">
+                        </div>
+                        <div class="form-group">
+                            <input type="text" id="mac_comment" name="comment" placeholder="备注 (可选)">
+                        </div>
+                        <button type="submit" class="btn btn-primary">添加</button>
+                    </form>
+
+                    {% if mac_filter.list %}
+                    <div class="table-responsive" style="margin-top: 1rem;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>MAC地址</th>
+                                    <th>备注</th>
+                                    <th>添加时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in mac_filter.list %}
+                                <tr>
+                                    <td class="mac-addr">{{ item.mac }}</td>
+                                    <td>{{ item.comment }}</td>
+                                    <td>{{ item.added_at }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-danger remove-mac" data-mac="{{ item.mac }}">删除</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // MAC过滤开关
+        document.getElementById('mac_filter_enabled').addEventListener('change', function() {
+            document.getElementById('macFilterMode').style.display = this.checked ? '' : 'none';
+        });
+
+        // 保存MAC过滤设置
+        document.getElementById('macFilterForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const data = {
+                enabled: document.getElementById('mac_filter_enabled').checked,
+                mode: document.querySelector('input[name="mode"]:checked')?.value || 'allow'
+            };
+            fetch('/api/security/mac_filter', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) showToast(res.message, 'success');
+                else showToast(res.message, 'error');
+            });
+        });
+
+        // 添加MAC地址
+        document.getElementById('addMacForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const data = {
+                mac: document.getElementById('mac_address').value,
+                comment: document.getElementById('mac_comment').value
+            };
+            fetch('/api/security/mac_filter/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    showToast(res.message, 'success');
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    showToast(res.message, 'error');
+                }
+            });
+        });
+
+        // 删除MAC地址
+        document.querySelectorAll('.remove-mac').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (!confirm('确定要删除此MAC地址吗？')) return;
+                fetch('/api/security/mac_filter/remove', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({mac: this.dataset.mac})
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        showToast(res.message, 'success');
+                        setTimeout(() => location.reload(), 500);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{
+  "name": "ds-code-agent-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "npm@8.18.0",
+  "description": "DeepSeek Code Agent CLI and SDK",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "dev": "turbo run dev",
+    "clean": "turbo run clean && rm -rf node_modules packages/*/node_modules packages/*/dist"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.2",
+    "turbo": "^2.0.4",
+    "typescript": "^5.4.2",
+    "vitest": "^1.4.0"
+  },
+  "dependencies": {
+    "@rollup/rollup-darwin-x64": "^4.60.4"
+  }
+}

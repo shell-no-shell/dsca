@@ -1,0 +1,81 @@
+{
+  "admin": {
+    "username": "admin",
+    "password": "admin123",
+    "email": "admin@router.local"
+  },
+  "work_mode": "router",
+  "wan": {
+    "connection_type": "dhcp",
+    "ip_address": "192.168.1.100",
+    "subnet_mask": "255.255.255.0",
+    "gateway": "192.168.1.1",
+    "dns_primary": "8.8.8.8",
+    "dns_secondary": "8.8.4.4",
+    "pppoe_username": "",
+    "pppoe_password": ""
+  },
+  "lan": {
+    "ip_address": "192.168.31.1",
+    "subnet_mask": "255.255.255.0",
+    "dhcp_enabled": true,
+    "dhcp_start": "192.168.31.100",
+    "dhcp_end": "192.168.31.200",
+    "dhcp_lease_time": 86400
+  },
+  "wifi_2g": {
+    "enabled": true,
+    "ssid": "Home_Router_2G",
+    "password": "wifi123456",
+    "channel": "auto",
+    "encryption": "WPA2-PSK",
+    "hidden": false,
+    "max_clients": 32
+  },
+  "wifi_5g": {
+    "enabled": true,
+    "ssid": "Home_Router_5G",
+    "password": "wifi123456",
+    "channel": "auto",
+    "encryption": "WPA2-PSK",
+    "hidden": false,
+    "max_clients": 32
+  },
+  "security": {
+    "remote_access": false,
+    "remote_port": 8443,
+    "ping_block": false,
+    "mac_filter": {
+      "enabled": false,
+      "mode": "allow",
+      "list": []
+    },
+    "url_filter": {
+      "enabled": false,
+      "list": []
+    }
+  },
+  "port_forwarding": {
+    "enabled": false,
+    "rules": []
+  },
+  "ddns": {
+    "enabled": false,
+    "provider": "",
+    "hostname": "",
+    "username": "",
+    "password": ""
+  },
+  "system": {
+    "hostname": "HomeRouter",
+    "timezone": "Asia/Shanghai",
+    "ntp_server": "ntp.aliyun.com",
+    "log_level": "info",
+    "auto_reboot": {
+      "enabled": false,
+      "schedule": "weekly",
+      "day": "Sunday",
+      "time": "03:00"
+    }
+  }
+}

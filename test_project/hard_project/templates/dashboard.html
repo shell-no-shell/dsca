@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>路由器管理 - 仪表盘</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar">
+            <h1>仪表盘</h1>
+            <div class="top-bar-right">
+                <span class="online-status">● 在线</span>
+                <span class="username">{{ session.username }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline">退出</a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- 状态卡片 -->
+            <div class="cards-grid">
+                <div class="card status-card">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M1,9l2,2c4.97,-4.97 13.03,-4.97 18,0l2,-2C16.93,2.93 7.08,2.93 1,9z M9,17l3,3l3,-3c-1.65,-1.66 -4.34,-1.66 -6,0z M5,13l2,2c2.76,-2.76 7.24,-2.76 10,0l2,-2C15.14,9.14 8.87,9.14 5,13z"/></svg>
+                    </div>
+                    <div class="card-body">
+                        <h3>工作模式</h3>
+                        <p class="card-value">{{ current_mode.name }}</p>
+                        <p class="card-desc">{{ current_mode.description[:30] }}...</p>
+                    </div>
+                </div>
+
+                <div class="card status-card">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10s10,-4.48 10,-10S17.52,2 12,2z M12,6c1.1,0 2,0.9 2,2s-0.9,2 -2,2s-2,-0.9 -2,-2s0.9,-2 2,-2z M16,17H8v-2h8V17z"/></svg>
+                    </div>
+                    <div class="card-body">
+                        <h3>运行时间</h3>
+                        <p class="card-value">{{ system_info.uptime }}</p>
+                        <p class="card-desc">系统正常运行中</p>
+                    </div>
+                </div>
+
+                <div class="card status-card">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M3.9,12C3.9,10.29 5.17,9 6.9,9C8.63,9 9.9,10.29 9.9,12C9.9,13.71 8.63,15 6.9,15C5.17,15 3.9,13.71 3.9,12z M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10s10,-4.48 10,-10S17.52,2 12,2z M12,6c3.31,0 6,2.69 6,6s-2.69,6 -6,6s-6,-2.69 -6,-6s2.69,-6 6,-6z"/></svg>
+                    </div>
+                    <div class="card-body">
+                        <h3>在线设备</h3>
+                        <p class="card-value">{{ clients|length }}</p>
+                        <p class="card-desc">已连接的设备数量</p>
+                    </div>
+                </div>
+
+                <div class="card status-card">
+                    <div class="card-icon">
+                        <svg viewBox="0 0 24 24" width="32" height="32"><path fill="currentColor" d="M12,21.35L10.55,20.03C5.4,15.36 2,12.27 2,8.5C2,5.41 4.42,3 7.5,3C9.24,3 10.91,3.81 12,5.08C13.09,3.81 14.76,3 16.5,3C19.58,3 22,5.41 22,8.5C22,12.27 18.6,15.36 13.45,20.03L12,21.35z"/></svg>
+                    </div>
+                    <div class="card-body">
+                        <h3>CPU / 内存</h3>
+                        <p class="card-value">{{ system_info.cpu_usage }}% / {{ system_info.memory_usage }}%</p>
+                        <p class="card-desc">CPU / 内存使用率</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 流量统计 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>实时流量</h2>
+                    <span class="badge badge-info">实时</span>
+                </div>
+                <div class="card-body">
+                    <div class="traffic-grid">
+                        <div class="traffic-item">
+                            <span class="traffic-label">当前下载</span>
+                            <span class="traffic-value down">{{ traffic.current_download }}</span>
+                        </div>
+                        <div class="traffic-item">
+                            <span class="traffic-label">当前上传</span>
+                            <span class="traffic-value up">{{ traffic.current_upload }}</span>
+                        </div>
+                        <div class="traffic-item">
+                            <span class="traffic-label">WAN口接收</span>
+                            <span class="traffic-value">{{ traffic.wan_rx }}</span>
+                        </div>
+                        <div class="traffic-item">
+                            <span class="traffic-label">WAN口发送</span>
+                            <span class="traffic-value">{{ traffic.wan_tx }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 在线设备 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>在线设备</h2>
+                    <span class="badge">{{ clients|length }} 台设备</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>设备名称</th>
+                                    <th>IP地址</th>
+                                    <th>MAC地址</th>
+                                    <th>频段</th>
+                                    <th>信号</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for client in clients %}
+                                <tr>
+                                    <td>{{ client.device_name }}</td>
+                                    <td>{{ client.ip }}</td>
+                                    <td class="mac-addr">{{ client.mac }}</td>
+                                    <td><span class="badge badge-{{ 'success' if client.band == '5G' else 'info' }}">{{ client.band }}</span></td>
+                                    <td>
+                                        <div class="signal-bar">
+                                            <div class="signal-level" style="width: {{ client.signal }}%"></div>
+                                            <span>{{ client.signal }}%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

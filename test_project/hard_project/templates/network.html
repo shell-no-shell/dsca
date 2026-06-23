@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>路由器管理 - 网络设置</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar">
+            <h1>网络设置</h1>
+            <div class="top-bar-right">
+                <span class="online-status">● 在线</span>
+                <span class="username">{{ session.username }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline">退出</a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- WAN口设置 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>WAN口设置</h2>
+                    <p class="card-subtitle">配置互联网连接参数</p>
+                </div>
+                <div class="card-body">
+                    <form id="wanForm" class="form">
+                        <div class="form-group">
+                            <label for="connection_type">连接类型</label>
+                            <select id="connection_type" name="connection_type">
+                                <option value="dhcp" {{ 'selected' if wan.connection_type == 'dhcp' }}>自动获取IP (DHCP)</option>
+                                <option value="static" {{ 'selected' if wan.connection_type == 'static' }}>静态IP</option>
+                                <option value="pppoe" {{ 'selected' if wan.connection_type == 'pppoe' }}>PPPoE拨号</option>
+                            </select>
+                        </div>
+
+                        <div id="staticFields" style="{{ '' if wan.connection_type == 'static' else 'display:none' }}">
+                            <div class="form-group">
+                                <label for="wan_ip">IP地址</label>
+                                <input type="text" id="wan_ip" name="ip_address" value="{{ wan.ip_address }}" placeholder="192.168.1.100">
+                            </div>
+                            <div class="form-group">
+                                <label for="wan_mask">子网掩码</label>
+                                <input type="text" id="wan_mask" name="subnet_mask" value="{{ wan.subnet_mask }}" placeholder="255.255.255.0">
+                            </div>
+                            <div class="form-group">
+                                <label for="wan_gateway">默认网关</label>
+                                <input type="text" id="wan_gateway" name="gateway" value="{{ wan.gateway }}" placeholder="192.168.1.1">
+                            </div>
+                        </div>
+
+                        <div id="pppoeFields" style="{{ '' if wan.connection_type == 'pppoe' else 'display:none' }}">
+                            <div class="form-group">
+                                <label for="pppoe_username">宽带账号</label>
+                                <input type="text" id="pppoe_username" name="pppoe_username" value="{{ wan.pppoe_username }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="pppoe_password">宽带密码</label>
+                                <input type="password" id="pppoe_password" name="pppoe_password" value="{{ wan.pppoe_password }}">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="dns_primary">首选DNS</label>
+                            <input type="text" id="dns_primary" name="dns_primary" value="{{ wan.dns_primary }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="dns_secondary">备用DNS</label>
+                            <input type="text" id="dns_secondary" name="dns_secondary" value="{{ wan.dns_secondary }}">
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">保存WAN设置</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- LAN口设置 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>LAN口设置</h2>
+                    <p class="card-subtitle">配置局域网参数</p>
+                </div>
+                <div class="card-body">
+                    <form id="lanForm" class="form">
+                        <div class="form-group">
+                            <label for="lan_ip">LAN口IP地址</label>
+                            <input type="text" id="lan_ip" name="ip_address" value="{{ lan.ip_address }}">
+                            <span class="form-hint">修改此地址后，管理页面地址将变更</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="lan_mask">子网掩码</label>
+                            <input type="text" id="lan_mask" name="subnet_mask" value="{{ lan.subnet_mask }}">
+                        </div>
+
+                        <h3 class="section-title">DHCP服务器</h3>
+
+                        <div class="form-group">
+                            <label class="switch-label">
+                                <span>启用DHCP服务器</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" name="dhcp_enabled" id="dhcp_enabled" {{ 'checked' if lan.dhcp_enabled }}>
+                                    <span class="toggle-slider"></span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div id="dhcpFields" style="{{ '' if lan.dhcp_enabled else 'display:none' }}">
+                            <div class="form-group">
+                                <label for="dhcp_start">地址池起始</label>
+                                <input type="text" id="dhcp_start" name="dhcp_start" value="{{ lan.dhcp_start }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="dhcp_end">地址池结束</label>
+                                <input type="text" id="dhcp_end" name="dhcp_end" value="{{ lan.dhcp_end }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="dhcp_lease_time">租约时间 (秒)</label>
+                                <input type="number" id="dhcp_lease_time" name="dhcp_lease_time" value="{{ lan.dhcp_lease_time }}">
+                                <span class="form-hint">默认86400秒 (24小时)</span>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">保存LAN设置</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // WAN连接类型切换
+        document.getElementById('connection_type').addEventListener('change', function() {
+            document.getElementById('staticFields').style.display = this.value === 'static' ? '' : 'none';
+            document.getElementById('pppoeFields').style.display = this.value === 'pppoe' ? '' : 'none';
+        });
+
+        // DHCP开关
+        document.getElementById('dhcp_enabled').addEventListener('change', function() {
+            document.getElementById('dhcpFields').style.display = this.checked ? '' : 'none';
+        });
+
+        // WAN表单提交
+        document.getElementById('wanForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const data = {};
+            new FormData(this).forEach((value, key) => { data[key] = value; });
+            fetch('/api/network/wan', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) showToast(res.message, 'success');
+                else showToast(res.message, 'error');
+            });
+        });
+
+        // LAN表单提交
+        document.getElementById('lanForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const data = {};
+            new FormData(this).forEach((value, key) => {
+                if (key === 'dhcp_enabled') data[key] = true;
+                else data[key] = value;
+            });
+            fetch('/api/network/lan', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) showToast(res.message, 'success');
+                else showToast(res.message, 'error');
+            });
+        });
+    </script>
+</body>
+</html>

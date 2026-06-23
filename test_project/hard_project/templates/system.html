@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>路由器管理 - 系统设置</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar">
+            <h1>系统设置</h1>
+            <div class="top-bar-right">
+                <span class="online-status">● 在线</span>
+                <span class="username">{{ session.username }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline">退出</a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- 基本系统设置 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>基本设置</h2>
+                </div>
+                <div class="card-body">
+                    <form id="systemForm" class="form">
+                        <div class="form-group">
+                            <label for="hostname">路由器主机名</label>
+                            <input type="text" id="hostname" name="hostname" value="{{ system.hostname }}">
+                        </div>
+                        <div class="form-group">
+                            <label for="timezone">时区</label>
+                            <select id="timezone" name="timezone">
+                                <option value="Asia/Shanghai" {{ 'selected' if system.timezone == 'Asia/Shanghai' }}>亚洲/上海 (UTC+8)</option>
+                                <option value="Asia/Tokyo" {{ 'selected' if system.timezone == 'Asia/Tokyo' }}>亚洲/东京 (UTC+9)</option>
+                                <option value="America/New_York" {{ 'selected' if system.timezone == 'America/New_York' }}>美国/纽约 (UTC-5)</option>
+                                <option value="Europe/London" {{ 'selected' if system.timezone == 'Europe/London' }}>欧洲/伦敦 (UTC+0)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="ntp_server">NTP服务器</label>
+                            <input type="text" id="ntp_server" name="ntp_server" value="{{ system.ntp_server }}">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">保存设置</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 自动重启 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>自动重启</h2>
+                    <p class="card-subtitle">定期重启路由器以保持最佳性能</p>
+                </div>
+                <div class="card-body">
+                    <form id="rebootScheduleForm" class="form">
+                        <div class="form-group">
+                            <label class="switch-label">
+                                <span>启用自动重启</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" name="auto_reboot_enabled" id="auto_reboot_enabled" {{ 'checked' if system.auto_reboot.enabled }}>
+                                    <span class="toggle-slider"></span>
+                                </div>
+                            </label>
+                        </div>
+                        <div id="rebootFields" style="{{ '' if system.auto_reboot.enabled else 'display:none' }}">
+                            <div class="form-group">
+                                <label for="reboot_schedule">重启频率</label>
+                                <select id="reboot_schedule" name="auto_reboot_schedule">
+                                    <option value="daily" {{ 'selected' if system.auto_reboot.schedule == 'daily' }}>每天</option>
+                                    <option value="weekly" {{ 'selected' if system.auto_reboot.schedule == 'weekly' }}>每周</option>
+                                    <option value="monthly" {{ 'selected' if system.auto_reboot.schedule == 'monthly' }}>每月</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="rebootDayField" style="{{ '' if system.auto_reboot.schedule == 'weekly' else 'display:none' }}">
+                                <label for="reboot_day">选择星期</label>
+                                <select id="reboot_day" name="auto_reboot_day">
+                                    <option value="Monday" {{ 'selected' if system.auto_reboot.day == 'Monday' }}>周一</option>
+                                    <option value="Tuesday" {{ 'selected' if system.auto_reboot.day == 'Tuesday' }}>周二</option>
+                                    <option value="Wednesday" {{ 'selected' if system.auto_reboot.day == 'Wednesday' }}>周三</option>
+                                    <option value="Thursday" {{ 'selected' if system.auto_reboot.day == 'Thursday' }}>周四</option>
+                                    <option value="Friday" {{ 'selected' if system.auto_reboot.day == 'Friday' }}>周五</option>
+                                    <option value="Saturday" {{ 'selected' if system.auto_reboot.day == 'Saturday' }}>周六</option>
+                                    <option value="Sunday" {{ 'selected' if system.auto_reboot.day == 'Sunday' }}>周日</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="reboot_time">重启时间</label>
+                                <input type="time" id="reboot_time" name="auto_reboot_time" value="{{ system.auto_reboot.time }}">
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">保存重启计划</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 系统操作 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>系统操作</h2>
+                </div>
+                <div class="card-body">
+                    <div class="action-group">
+                        <div class="action-item">
+                            <div>
+                                <h3>重启路由器</h3>
+                                <p>重启路由器以应用配置更改或解决网络问题</p>
+                            </div>
+                            <button class="btn btn-warning" id="rebootBtn">重启</button>
+                        </div>
+                        <div class="action-item">
+                            <div>
+                                <h3>恢复出厂设置</h3>
+                                <p>将所有设置恢复为出厂默认值，此操作不可撤销</p>
+                            </div>
+                            <button class="btn btn-danger" id="resetBtn">恢复出厂</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 操作日志 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>操作日志</h2>
+                    <button class="btn btn-sm btn-outline" onclick="location.reload()">刷新</button>
+                </div>
+                <div class="card-body">
+                    <div class="log-container">
+                        {% for log in logs %}
+                        <div class="log-entry">
+                            <span class="log-time">{{ log.timestamp }}</span>
+                            <span class="log-action">{{ log.action }}</span>
+                            <span class="log-detail">{{ log.detail }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // 自动重启开关
+        document.getElementById('auto_reboot_enabled').addEventListener('change', function() {
+            document.getElementById('rebootFields').style.display = this.checked ? '' : 'none';
+        });
+
+        // 重启频率切换
+        document.getElementById('reboot_schedule').addEventListener('change', function() {
+            document.getElementById('rebootDayField').style.display = this.value === 'weekly' ? '' : 'none';
+        });
+
+        // 保存系统设置
+        document.getElementById('systemForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const data = {
+                hostname: document.getElementById('hostname').value,
+                timezone: document.getElementById('timezone').value,
+                ntp_server: document.getElementById('ntp_server').value
+            };
+            fetch('/api/system/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) showToast(res.message, 'success');
+                else showToast(res.message, 'error');
+            });
+        });
+
+        // 保存重启计划
+        document.getElementById('rebootScheduleForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const data = {
+                auto_reboot: {
+                    enabled: document.getElementById('auto_reboot_enabled').checked,
+                    schedule: document.getElementById('reboot_schedule').value,
+                    day: document.getElementById('reboot_day')?.value || 'Sunday',
+                    time: document.getElementById('reboot_time').value
+                }
+            };
+            fetch('/api/system/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) showToast(res.message, 'success');
+                else showToast(res.message, 'error');
+            });
+        });
+
+        // 重启
+        document.getElementById('rebootBtn').addEventListener('click', function() {
+            if (!confirm('确定要重启路由器吗？')) return;
+            fetch('/api/system/reboot', {method: 'POST'})
+            .then(r => r.json())
+            .then(res => {
+                showToast(res.message, 'success');
+                setTimeout(() => location.reload(), 3000);
+            });
+        });
+
+        // 恢复出厂
+        document.getElementById('resetBtn').addEventListener('click', function() {
+            if (!confirm('⚠️ 确定要恢复出厂设置吗？此操作将清除所有配置！')) return;
+            if (!confirm('再次确认：所有设置将被重置为默认值！')) return;
+            fetch('/api/system/reset', {method: 'POST'})
+            .then(r => r.json())
+            .then(res => {
+                showToast(res.message, 'warning');
+                setTimeout(() => { window.location.href = '/login'; }, 2000);
+            });
+        });
+    </script>
+</body>
+</html>

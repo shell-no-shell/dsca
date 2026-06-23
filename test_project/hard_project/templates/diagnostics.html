@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>路由器管理 - 诊断工具</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar">
+            <h1>诊断工具</h1>
+            <div class="top-bar-right">
+                <span class="online-status">● 在线</span>
+                <span class="username">{{ session.username }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline">退出</a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Ping测试 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Ping 测试</h2>
+                    <p class="card-subtitle">测试网络连通性</p>
+                </div>
+                <div class="card-body">
+                    <form id="pingForm" class="form form-inline">
+                        <div class="form-group" style="flex: 1;">
+                            <input type="text" id="ping_target" value="8.8.8.8" placeholder="输入IP地址或域名">
+                        </div>
+                        <button type="submit" class="btn btn-primary">开始Ping</button>
+                    </form>
+                    <div id="pingResult" class="ping-result" style="display:none;"></div>
+                </div>
+            </div>
+
+            <!-- 流量统计 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>流量统计</h2>
+                    <button class="btn btn-sm btn-outline" onclick="refreshTraffic()">刷新</button>
+                </div>
+                <div class="card-body">
+                    <div id="trafficStats" class="traffic-stats">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 连接设备 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>所有连接设备</h2>
+                    <button class="btn btn-sm btn-outline" onclick="refreshDevices()">刷新</button>
+                </div>
+                <div class="card-body">
+                    <div id="deviceList" class="device-list">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // Ping测试
+        document.getElementById('pingForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const target = document.getElementById('ping_target').value;
+            const resultDiv = document.getElementById('pingResult');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div class="loading">正在 Ping ' + target + ' ...</div>';
+
+            fetch('/api/diagnostics/ping', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({target: target})
+            })
+            .then(r => r.json())
+            .then(data => {
+                let html = '<div class="ping-summary">';
+                html += `<p>正在 Ping ${data.target} 具有 32 字节的数据:</p>`;
+                data.results.forEach(r => {
+                    const icon = r.success ? '✅' : '❌';
+                    html += `<p>${icon} 来自 ${data.target} 的回复: 字节=32 时间=${r.delay}ms TTL=${r.ttl}</p>`;
+                });
+                html += `<hr><p>${data.target} 的 Ping 统计信息:</p>`;
+                html += `<p>数据包: 已发送 = ${data.sent}，已接收 = ${data.received}，丢失 = ${data.lost} (${Math.round(data.lost/data.sent*100)}% 丢失)</p>`;
+                html += `<p>最短 = ${data.min}ms，最长 = ${data.max}ms，平均 = ${data.avg}ms</p>`;
+                html += '</div>';
+                resultDiv.innerHTML = html;
+            });
+        });
+
+        // 刷新流量统计
+        function refreshTraffic() {
+            const container = document.getElementById('trafficStats');
+            container.innerHTML = '<div class="loading">加载中...</div>';
+            fetch('/api/traffic/stats')
+            .then(r => r.json())
+            .then(data => {
+                let html = '<div class="traffic-grid">';
+                const items = [
+                    {label: 'WAN口接收', value: data.wan_rx},
+                    {label: 'WAN口发送', value: data.wan_tx},
+                    {label: 'LAN口接收', value: data.lan_rx},
+                    {label: 'LAN口发送', value: data.lan_tx},
+                    {label: 'WiFi接收', value: data.wifi_rx},
+                    {label: 'WiFi发送', value: data.wifi_tx},
+                    {label: '当前下载速度', value: data.current_download, cls: 'down'},
+                    {label: '当前上传速度', value: data.current_upload, cls: 'up'}
+                ];
+                items.forEach(item => {
+                    html += `<div class="traffic-item">
+                        <span class="traffic-label">${item.label}</span>
+                        <span class="traffic-value ${item.cls || ''}">${item.value}</span>
+                    </div>`;
+                });
+                html += '</div>';
+                container.innerHTML = html;
+            });
+        }
+
+        // 刷新设备列表
+        function refreshDevices() {
+            const container = document.getElementById('deviceList');
+            container.innerHTML = '<div class="loading">加载中...</div>';
+            fetch('/api/clients')
+            .then(r => r.json())
+            .then(data => {
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><p>暂无连接设备</p></div>';
+                    return;
+                }
+                let html = '<div class="table-responsive"><table class="table"><thead><tr><th>设备名称</th><th>MAC地址</th><th>IP地址</th><th>连接类型</th></tr></thead><tbody>';
+                data.forEach(device => {
+                    html += `<tr>
+                        <td>${device.device_name}</td>
+                        <td class="mac-addr">${device.mac}</td>
+                        <td>${device.ip}</td>
+                        <td><span class="badge badge-${device.connection_type === '有线' ? 'secondary' : 'info'}">${device.connection_type || device.band || 'WiFi'}</span></td>
+                    </tr>`;
+                });
+                html += '</tbody></table></div>';
+                container.innerHTML = html;
+            });
+        }
+
+        // 页面加载时自动刷新
+        refreshTraffic();
+        refreshDevices();
+    </script>
+</body>
+</html>

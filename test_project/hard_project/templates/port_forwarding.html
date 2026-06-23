@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>路由器管理 - 端口转发</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar">
+            <h1>端口转发</h1>
+            <div class="top-bar-right">
+                <span class="online-status">● 在线</span>
+                <span class="username">{{ session.username }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline">退出</a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- 添加规则 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>添加端口转发规则</h2>
+                </div>
+                <div class="card-body">
+                    <form id="portForwardForm" class="form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="rule_name">规则名称</label>
+                                <input type="text" id="rule_name" name="name" placeholder="例如: Web服务器" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="rule_protocol">协议</label>
+                                <select id="rule_protocol" name="protocol">
+                                    <option value="TCP">TCP</option>
+                                    <option value="UDP">UDP</option>
+                                    <option value="BOTH">TCP/UDP</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="rule_external_port">外部端口</label>
+                                <input type="number" id="rule_external_port" name="external_port" placeholder="例如: 8080" min="1" max="65535" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="rule_internal_ip">内部IP地址</label>
+                                <input type="text" id="rule_internal_ip" name="internal_ip" placeholder="例如: 192.168.31.100" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="rule_internal_port">内部端口</label>
+                                <input type="number" id="rule_internal_port" name="internal_port" placeholder="例如: 80" min="1" max="65535" required>
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">添加规则</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- 规则列表 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>端口转发规则</h2>
+                    <span class="badge">{{ rules|length }} 条规则</span>
+                </div>
+                <div class="card-body">
+                    {% if rules %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>名称</th>
+                                    <th>协议</th>
+                                    <th>外部端口</th>
+                                    <th>内部地址</th>
+                                    <th>内部端口</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for rule in rules %}
+                                <tr>
+                                    <td>{{ rule.name }}</td>
+                                    <td><span class="badge badge-info">{{ rule.protocol }}</span></td>
+                                    <td>{{ rule.external_port }}</td>
+                                    <td>{{ rule.internal_ip }}</td>
+                                    <td>{{ rule.internal_port }}</td>
+                                    <td>
+                                        <span class="badge badge-{{ 'success' if rule.enabled else 'secondary' }}">
+                                            {{ '已启用' if rule.enabled else '已禁用' }}
+                                        </span>
+                                    </td>
+                                    <td class="action-cell">
+                                        <button class="btn btn-sm btn-outline toggle-rule" data-id="{{ rule.id }}">
+                                            {{ '禁用' if rule.enabled else '启用' }}
+                                        </button>
+                                        <button class="btn btn-sm btn-danger delete-rule" data-id="{{ rule.id }}">删除</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <p>暂无端口转发规则</p>
+                        <p class="text-muted">添加规则以允许外部网络访问局域网内的设备</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        // 添加规则
+        document.getElementById('portForwardForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const data = {};
+            new FormData(this).forEach((value, key) => { data[key] = value; });
+            fetch('/api/port_forwarding/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) {
+                    showToast(res.message, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(res.message, 'error');
+                }
+            });
+        });
+
+        // 切换规则状态
+        document.querySelectorAll('.toggle-rule').forEach(btn => {
+            btn.addEventListener('click', function() {
+                fetch('/api/port_forwarding/toggle', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({id: this.dataset.id})
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        showToast(res.message, 'success');
+                        setTimeout(() => location.reload(), 500);
+                    }
+                });
+            });
+        });
+
+        // 删除规则
+        document.querySelectorAll('.delete-rule').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (!confirm('确定要删除此规则吗？')) return;
+                fetch('/api/port_forwarding/remove', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({id: this.dataset.id})
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        showToast(res.message, 'success');
+                        setTimeout(() => location.reload(), 500);
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

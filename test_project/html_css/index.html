@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- BUG: missing semantic HTML - should use header, main, nav, footer -->
+    <div class="header">
+        <h1>Task Dashboard</h1>
+        <!-- BUG: navigation links don't have href -->
+        <div class="nav">
+            <a>Home</a>
+            <a>Tasks</a>
+            <a>Settings</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- BUG: form has no labels for accessibility -->
+        <div class="add-task">
+            <h2>Add New Task</h2>
+            <form id="taskForm">
+                <input type="text" id="taskTitle" placeholder="Task title">
+                <select id="taskPriority">
+                    <option value="">Select priority</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                </select>
+                <!-- BUG: button type not specified (defaults to submit, causes page reload) -->
+                <button id="addBtn">Add Task</button>
+            </form>
+        </div>
+
+        <!-- BUG: task list not using semantic list elements (ul/li) -->
+        <div class="task-list" id="taskList">
+            <div class="task-item priority-high">
+                <span class="task-title">Fix login bug</span>
+                <span class="task-priority">High</span>
+                <!-- BUG: no alt text for icon, using div instead of button -->
+                <div class="delete-btn">X</div>
+            </div>
+            <div class="task-item priority-low">
+                <span class="task-title">Update documentation</span>
+                <span class="task-priority">Low</span>
+                <div class="delete-btn">X</div>
+            </div>
+        </div>
+
+        <!-- TODO: add task filter/search bar -->
+        <!-- TODO: add task counter showing total/completed -->
+        <!-- TODO: add dark mode toggle -->
+        <!-- TODO: make responsive for mobile (currently broken on small screens) -->
+    </div>
+
+    <div class="footer">
+        <p>Task Dashboard 2024</p>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

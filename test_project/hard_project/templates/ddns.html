@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>路由器管理 - DDNS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <div class="top-bar">
+            <h1>DDNS 动态域名解析</h1>
+            <div class="top-bar-right">
+                <span class="online-status">● 在线</span>
+                <span class="username">{{ session.username }}</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline">退出</a>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="card">
+                <div class="card-header">
+                    <h2>DDNS 设置</h2>
+                    <p class="card-subtitle">通过动态域名解析，使用固定域名访问家庭网络</p>
+                </div>
+                <div class="card-body">
+                    <form id="ddnsForm" class="form">
+                        <div class="form-group">
+                            <label class="switch-label">
+                                <span>启用DDNS</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" name="enabled" id="ddns_enabled" {{ 'checked' if ddns.enabled }}>
+                                    <span class="toggle-slider"></span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div id="ddnsFields" style="{{ '' if ddns.enabled else 'display:none' }}">
+                            <div class="form-group">
+                                <label for="ddns_provider">服务提供商</label>
+                                <select id="ddns_provider" name="provider">
+                                    <option value="">请选择</option>
+                                    <option value="aliyun" {{ 'selected' if ddns.provider == 'aliyun' }}>阿里云DNS</option>
+                                    <option value="dnspod" {{ 'selected' if ddns.provider == 'dnspod' }}>DNSPod</option>
+                                    <option value="noip" {{ 'selected' if ddns.provider == 'noip' }}>No-IP</option>
+                                    <option value="duckdns" {{ 'selected' if ddns.provider == 'duckdns' }}>DuckDNS</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="ddns_hostname">域名</label>
+                                <input type="text" id="ddns_hostname" name="hostname" value="{{ ddns.hostname }}" placeholder="例如: myhome.ddns.net">
+                            </div>
+                            <div class="form-group">
+                                <label for="ddns_username">用户名</label>
+                                <input type="text" id="ddns_username" name="username" value="{{ ddns.username }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="ddns_password">密码/Token</label>
+                                <input type="password" id="ddns_password" name="password" value="{{ ddns.password }}">
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">保存设置</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script>
+        document.getElementById('ddns_enabled').addEventListener('change', function() {
+            document.getElementById('ddnsFields').style.display = this.checked ? '' : 'none';
+        });
+
+        document.getElementById('ddnsForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const data = {};
+            new FormData(this).forEach((value, key) => {
+                if (key === 'enabled') data[key] = true;
+                else data[key] = value;
+            });
+            fetch('/api/ddns/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            })
+            .then(r => r.json())
+            .then(res => {
+                if (res.success) showToast(res.message, 'success');
+                else showToast(res.message, 'error');
+            });
+        });
+    </script>
+</body>
+</html>

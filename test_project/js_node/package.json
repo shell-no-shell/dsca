@@ -1,0 +1,10 @@
+{
+  "name": "js-test-project",
+  "version": "1.0.0",
+  "description": "JavaScript/Node.js test project for dsca",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test src/linked-list.test.js src/event-emitter.test.js"
+  }
+}

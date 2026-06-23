@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alex Chen · 个人主页</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+
+  <!-- ====== 导航栏 ====== -->
+  <header class="navbar">
+    <div class="container nav-container">
+      <a href="#" class="logo">Alex<span class="logo-dot">.</span>Chen</a>
+      <nav class="nav-links" id="navLinks">
+        <a href="#about">关于</a>
+        <a href="#skills">技能</a>
+        <a href="#works">作品</a>
+        <a href="#contact">联系</a>
+      </nav>
+      <button class="hamburger" id="hamburger" aria-label="菜单">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ====== Hero 区域 ====== -->
+  <section class="hero" id="hero">
+    <div class="hero-bg"></div>
+    <div class="container hero-content">
+      <div class="hero-text">
+        <p class="hero-greeting">👋 你好，我是</p>
+        <h1 class="hero-name">Alex Chen</h1>
+        <p class="hero-role">全栈开发者 · 创意设计师</p>
+        <p class="hero-desc">
+          热衷于用代码构建优雅的数字体验，将设计与技术融合，
+          创造令人愉悦的交互作品。
+        </p>
+        <div class="hero-actions">
+          <a href="#works" class="btn btn-primary">查看作品 <i class="fas fa-arrow-right"></i></a>
+          <a href="#contact" class="btn btn-outline">联系我</a>
+        </div>
+        <div class="hero-social">
+          <a href="#" aria-label="GitHub"><i class="fab fa-github"></i></a>
+          <a href="#" aria-label="LinkedIn"><i class="fab fa-linkedin-in"></i></a>
+          <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+          <a href="#" aria-label="Dribbble"><i class="fab fa-dribbble"></i></a>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="avatar-wrapper">
+          <div class="avatar-ring"></div>
+          <div class="avatar">
+            <span class="avatar-initials">AC</span>
+          </div>
+          <div class="floating-badge badge-1">⚡ 5年+经验</div>
+          <div class="floating-badge badge-2">🚀 50+项目</div>
+        </div>
+      </div>
+    </div>
+    <div class="scroll-indicator">
+      <span>向下滚动</span>
+      <i class="fas fa-chevron-down"></i>
+    </div>
+  </section>
+
+  <!-- ====== 关于我 ====== -->
+  <section class="section about" id="about">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">About</span>
+        <h2 class="section-title">关于我</h2>
+        <div class="section-divider"></div>
+      </div>
+      <div class="about-grid">
+        <div class="about-card">
+          <div class="about-icon"><i class="fas fa-laptop-code"></i></div>
+          <h3>全栈开发</h3>
+          <p>精通 React、Vue、Node.js 及云原生技术栈，能够独立完成从设计到部署的全流程开发。</p>
+        </div>
+        <div class="about-card">
+          <div class="about-icon"><i class="fas fa-paint-brush"></i></div>
+          <h3>UI/UX 设计</h3>
+          <p>注重用户体验与视觉细节，擅长使用 Figma 进行原型设计，打造兼具美感与功能性的界面。</p>
+        </div>
+        <div class="about-card">
+          <div class="about-icon"><i class="fas fa-brain"></i></div>
+          <h3>持续学习</h3>
+          <p>保持对新技术的好奇心，定期参与开源社区贡献，乐于分享知识与经验。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 技能展示 ====== -->
+  <section class="section skills" id="skills">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Skills</span>
+        <h2 class="section-title">技能栈</h2>
+        <div class="section-divider"></div>
+      </div>
+      <div class="skills-grid">
+        <div class="skill-item" data-progress="95">
+          <div class="skill-info">
+            <span>HTML / CSS</span>
+            <span class="skill-percent">95%</span>
+          </div>
+          <div class="skill-bar">
+            <div class="skill-fill" style="--p:95%"></div>
+          </div>
+        </div>
+        <div class="skill-item" data-progress="90">
+          <div class="skill-info">
+            <span>JavaScript / TypeScript</span>
+            <span class="skill-percent">90%</span>
+          </div>
+          <div class="skill-bar">
+            <div class="skill-fill" style="--p:90%"></div>
+          </div>
+        </div>
+        <div class="skill-item" data-progress="85">
+          <div class="skill-info">
+            <span>React / Next.js</span>
+            <span class="skill-percent">85%</span>
+          </div>
+          <div class="skill-bar">
+            <div class="skill-fill" style="--p:85%"></div>
+          </div>
+        </div>
+        <div class="skill-item" data-progress="80">
+          <div class="skill-info">
+            <span>Vue / Nuxt</span>
+            <span class="skill-percent">80%</span>
+          </div>
+          <div class="skill-bar">
+            <div class="skill-fill" style="--p:80%"></div>
+          </div>
+        </div>
+        <div class="skill-item" data-progress="75">
+          <div class="skill-info">
+            <span>Node.js / Python</span>
+            <span class="skill-percent">75%</span>
+          </div>
+          <div class="skill-bar">
+            <div class="skill-fill" style="--p:75%"></div>
+          </div>
+        </div>
+        <div class="skill-item" data-progress="70">
+          <div class="skill-info">
+            <span>Docker / DevOps</span>
+            <span class="skill-percent">70%</span>
+          </div>
+          <div class="skill-bar">
+            <div class="skill-fill" style="--p:70%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 技术标签云 -->
+      <div class="tech-cloud">
+        <span class="tech-tag">React</span>
+        <span class="tech-tag">Vue</span>
+        <span class="tech-tag">TypeScript</span>
+        <span class="tech-tag">Node.js</span>
+        <span class="tech-tag">Tailwind</span>
+        <span class="tech-tag">Figma</span>
+        <span class="tech-tag">GraphQL</span>
+        <span class="tech-tag">Docker</span>
+        <span class="tech-tag">AWS</span>
+        <span class="tech-tag">MongoDB</span>
+        <span class="tech-tag">PostgreSQL</span>
+        <span class="tech-tag">Redis</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 作品轮播 ====== -->
+  <section class="section works" id="works">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Portfolio</span>
+        <h2 class="section-title">精选作品</h2>
+        <div class="section-divider"></div>
+      </div>
+      <div class="carousel-container">
+        <div class="carousel-track" id="carouselTrack">
+          <div class="carousel-slide">
+            <div class="work-card">
+              <div class="work-thumb" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="work-overlay">
+                  <a href="#" class="work-link"><i class="fas fa-external-link-alt"></i> 查看详情</a>
+                </div>
+                <i class="fas fa-shopping-cart work-icon"></i>
+              </div>
+              <div class="work-info">
+                <span class="work-category">电商平台</span>
+                <h3>ShopFlow</h3>
+                <p>全栈电商解决方案，支持实时库存管理与智能推荐。</p>
+              </div>
+            </div>
+          </div>
+          <div class="carousel-slide">
+            <div class="work-card">
+              <div class="work-thumb" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <div class="work-overlay">
+                  <a href="#" class="work-link"><i class="fas fa-external-link-alt"></i> 查看详情</a>
+                </div>
+                <i class="fas fa-chart-line work-icon"></i>
+              </div>
+              <div class="work-info">
+                <span class="work-category">数据可视化</span>
+                <h3>DataViz Pro</h3>
+                <p>交互式数据仪表盘，支持实时数据流与自定义图表。</p>
+              </div>
+            </div>
+          </div>
+          <div class="carousel-slide">
+            <div class="work-card">
+              <div class="work-thumb" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <div class="work-overlay">
+                  <a href="#" class="work-link"><i class="fas fa-external-link-alt"></i> 查看详情</a>
+                </div>
+                <i class="fas fa-cloud work-icon"></i>
+              </div>
+              <div class="work-info">
+                <span class="work-category">云工具</span>
+                <h3>CloudSync</h3>
+                <p>跨平台文件同步工具，端到端加密保障数据安全。</p>
+              </div>
+            </div>
+          </div>
+          <div class="carousel-slide">
+            <div class="work-card">
+              <div class="work-thumb" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);">
+                <div class="work-overlay">
+                  <a href="#" class="work-link"><i class="fas fa-external-link-alt"></i> 查看详情</a>
+                </div>
+                <i class="fas fa-mobile-alt work-icon"></i>
+              </div>
+              <div class="work-info">
+                <span class="work-category">移动应用</span>
+                <h3>FitTrack</h3>
+                <p>AI 驱动的健康追踪应用，个性化运动与饮食建议。</p>
+              </div>
+            </div>
+          </div>
+          <div class="carousel-slide">
+            <div class="work-card">
+              <div class="work-thumb" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                <div class="work-overlay">
+                  <a href="#" class="work-link"><i class="fas fa-external-link-alt"></i> 查看详情</a>
+                </div>
+                <i class="fas fa-palette work-icon"></i>
+              </div>
+              <div class="work-info">
+                <span class="work-category">设计系统</span>
+                <h3>Nebula UI</h3>
+                <p>企业级组件库，120+ 可定制组件，支持主题切换。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="carousel-btn carousel-prev" id="prevBtn" aria-label="上一个">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        <button class="carousel-btn carousel-next" id="nextBtn" aria-label="下一个">
+          <i class="fas fa-chevron-right"></i>
+        </button>
+        <div class="carousel-dots" id="carouselDots"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 联系表单 ====== -->
+  <section class="section contact" id="contact">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-tag">Contact</span>
+        <h2 class="section-title">联系我</h2>
+        <div class="section-divider"></div>
+      </div>
+      <div class="contact-wrapper">
+        <div class="contact-info">
+          <div class="contact-item">
+            <div class="contact-item-icon"><i class="fas fa-envelope"></i></div>
+            <div>
+              <h4>邮箱</h4>
+              <p>alex.chen@example.com</p>
+            </div>
+          </div>
+          <div class="contact-item">
+            <div class="contact-item-icon"><i class="fas fa-map-marker-alt"></i></div>
+            <div>
+              <h4>位置</h4>
+              <p>中国 · 上海</p>
+            </div>
+          </div>
+          <div class="contact-item">
+            <div class="contact-item-icon"><i class="fas fa-phone-alt"></i></div>
+            <div>
+              <h4>电话</h4>
+              <p>+86 138-0000-0000</p>
+            </div>
+          </div>
+          <div class="contact-availability">
+            <i class="fas fa-circle"></i> 目前开放合作机会
+          </div>
+        </div>
+        <form class="contact-form" id="contactForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="name">姓名</label>
+              <input type="text" id="name" placeholder="你的名字" required>
+            </div>
+            <div class="form-group">
+              <label for="email">邮箱</label>
+              <input type="email" id="email" placeholder="your@email.com" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="subject">主题</label>
+            <input type="text" id="subject" placeholder="想聊什么？">
+          </div>
+          <div class="form-group">
+            <label for="message">消息</label>
+            <textarea id="message" rows="5" placeholder="写下你想说的…" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-submit">
+            发送消息 <i class="fas fa-paper-plane"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== 页脚 ====== -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <p>&copy; 2025 Alex Chen. 用 ❤️ 与 ☕ 打造</p>
+      <div class="footer-links">
+        <a href="#"><i class="fab fa-github"></i></a>
+        <a href="#"><i class="fab fa-linkedin-in"></i></a>
+        <a href="#"><i class="fab fa-twitter"></i></a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
