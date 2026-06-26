@@ -32,6 +32,24 @@ packages/
 - Node.js >= 18
 - 一个 DeepSeek API Key
 
+## 快速开始
+
+```bash
+# 克隆仓库
+git clone https://github.com/shell-no-shell/dsca.git
+cd dsca
+
+# 安装依赖并构建
+npm install
+npm run build
+
+# 配置 API Key(见下文「配置」)
+echo "DEEPSEEK_API_KEY=你的_api_key" > .env
+
+# 运行(在某个工作目录上执行任务)
+node packages/cli/dist/index.js "给 calculator.py 的 divide() 加除零检查" -w ./my_project
+```
+
 ## 安装与构建
 
 ```bash
