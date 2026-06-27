@@ -1,18 +1,24 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { LLMClient, LLMConfig } from '../llm/client.js';
 import { CodeAgent } from '../orchestrator/runner.js';
 import { EVOLUTION_REFLECT_PROMPT } from '../prompts/index.js';
 import { GuidanceStore } from './guidance.js';
-import { evaluateRun } from './evaluator.js';
+import { evaluateRun, buildInstanceTask } from './evaluator.js';
+import { CodeImprover } from './improver.js';
 import {
   BenchmarkInstance,
+  CodeImprovementRecord,
   CriticVerdict,
   EvolutionCallbacks,
   GenerationRecord,
   GuidanceRule,
   InstanceResult,
 } from './types.js';
+
+const execFileAsync = promisify(execFile);
 
 // DeepSeek pricing per 1M tokens, used to attribute critic/reflector cost.
 const JUDGE_PRICING = { input: 0.27, output: 1.10 };
@@ -42,31 +48,35 @@ export interface EvolutionConfig {
   /** Allowlisted domains / blocked commands forwarded to each agent run. */
   allowedDomains?: string[];
   blockedCommands?: string[];
+  /**
+   * Enable the CODE self-improvement phase: when a generation has failures, point
+   * a CodeAgent at dsca's OWN source (isolated git worktree), let it diagnose and
+   * patch the root-cause weakness, rebuild, re-validate the worst failure, and keep
+   * the change only if it builds and improves the score. Distinct from (and run in
+   * addition to) the guidance-rule reflection.
+   */
+  selfModify?: boolean;
+  /** Absolute path to dsca's repo root — required when selfModify is enabled. */
+  repoRoot?: string;
+  /** Turn budget for the self-improvement fixer agent run. */
+  fixerMaxSteps?: number;
 }
 
 /** Default per-instance turn budget when none is configured. */
 const DEFAULT_INSTANCE_MAX_STEPS = 200;
-
-/**
- * Build the task prompt for an instance, making the REQUIRED tech stack explicit
- * and non-negotiable. The benchmark's `stack` column (e.g. "Vue3/Go",
- * "Java/React") was being ignored by the agent — runs repeatedly used React
- * instead of Vue3 or Node instead of Go and were failed for it. Stating the
- * constraint up front, separate from the prose description, fixes that.
- */
-function buildInstanceTask(instance: BenchmarkInstance): string {
-  const stack = instance.stack?.trim();
-  const stackLine = stack
-    ? `REQUIRED TECH STACK (mandatory — do NOT substitute any other language or framework): ${stack}\n\n`
-    : '';
-  return `${stackLine}${instance.description}\n\nDeliver a complete, runnable project: implement every feature the task lists, create real working code (no empty stubs or TODO placeholders), and include the dependency manifest and entry point for the required stack.`;
-}
 
 function extractFinalAnswer(messages: { role: string; content: string }[]): string {
   const tagged = messages.find(m => m.role === 'assistant' && typeof m.content === 'string' && m.content.includes('Final Answer:'));
   if (tagged) return tagged.content;
   const lastAssistant = [...messages].reverse().find(m => m.role === 'assistant' && m.content);
   return lastAssistant?.content ?? '';
+}
+
+/** Pull the "Final Answer: ..." section out of captured CLI stdout, if present. */
+function extractFinalAnswerFromText(text: string): string {
+  const idx = text.lastIndexOf('Final Answer:');
+  if (idx >= 0) return text.slice(idx, idx + 4000);
+  return '';
 }
 
 function tryParseRules(raw: string): { rules: Array<{ rule: string; rationale: string }>; changeNote: string } | null {
@@ -96,6 +106,13 @@ export class EvolutionEngine {
   private config: EvolutionConfig;
   private store: GuidanceStore;
   private judge: LLMClient;
+  /**
+   * Set once a code self-improvement is applied: the path to the rebuilt CLI
+   * entry point. While set, subsequent instance runs are routed through this
+   * rebuilt binary (subprocess) so they actually exercise the improved algorithm,
+   * which the long-lived engine process can't pick up in-memory.
+   */
+  private patchedCliEntry: string | null = null;
 
   constructor(config: EvolutionConfig, store?: GuidanceStore) {
     this.config = config;
@@ -138,6 +155,13 @@ export class EvolutionEngine {
     const workspacePath = path.join(this.config.workRoot, `gen${generation}`, `inst_${instance.id}`);
     fs.mkdirSync(workspacePath, { recursive: true });
 
+    // After a code self-improvement is applied, run instances through the rebuilt
+    // CLI (subprocess) so they exercise the improved algorithm rather than this
+    // process's stale in-memory code.
+    if (this.patchedCliEntry) {
+      return this.runInstanceViaSubprocess(instance, workspacePath, cb);
+    }
+
     const agent = new CodeAgent({
       llmConfig: this.config.llmConfig,
       workspacePath,
@@ -175,6 +199,71 @@ export class EvolutionEngine {
 
     const result: InstanceResult = { instance, verdict, workspacePath, error: runError };
     return { result, agentCost, judgeCost: jCost };
+  }
+
+  /**
+   * Run + evaluate an instance through the rebuilt CLI as a subprocess. Used after
+   * a code self-improvement has been applied so the run exercises the improved
+   * algorithm. Agent cost can't be recovered from stdout, so it is reported as 0.
+   */
+  private async runInstanceViaSubprocess(
+    instance: BenchmarkInstance,
+    workspacePath: string,
+    cb: EvolutionCallbacks
+  ): Promise<{ result: InstanceResult; agentCost: number; judgeCost: number }> {
+    const cliEntry = this.patchedCliEntry!;
+    cb.onLog?.(`  [inst ${instance.id}] running via rebuilt CLI (improved algorithm)`);
+
+    // Carry the LLM provider/model into the subprocess via a project config file.
+    const cfg = this.config.llmConfig;
+    const yaml = [
+      'llm:',
+      `  provider: ${cfg.provider ?? 'deepseek'}`,
+      cfg.baseUrl ? `  baseUrl: ${cfg.baseUrl}` : '',
+      `  defaultModel: ${cfg.defaultModel ?? 'deepseek-chat'}`,
+    ].filter(Boolean).join('\n');
+    try { fs.writeFileSync(path.join(workspacePath, '.dsca.yaml'), yaml + '\n'); } catch { /* ignore */ }
+
+    const task = buildInstanceTask(instance);
+    const steps = String(this.config.maxSteps ?? DEFAULT_INSTANCE_MAX_STEPS);
+    let stdout = '';
+    let runError: string | undefined;
+    try {
+      const r = await execFileAsync(
+        'node',
+        [cliEntry, task, '-w', workspacePath, '--confirm-all', '--max-steps', steps],
+        {
+          cwd: workspacePath,
+          timeout: 1_800_000, // 30 min
+          maxBuffer: 64 * 1024 * 1024,
+          env: {
+            ...process.env,
+            DEEPSEEK_API_KEY: cfg.apiKey || process.env.DEEPSEEK_API_KEY || '',
+            OPENAI_API_KEY: cfg.apiKey || process.env.OPENAI_API_KEY || '',
+          },
+        }
+      );
+      stdout = r.stdout || '';
+    } catch (e: any) {
+      // Non-zero exit / timeout still may have produced files; judge what exists.
+      stdout = (e?.stdout as string) || '';
+      runError = e?.message ?? String(e);
+      cb.onLog?.(`  [inst ${instance.id}] subprocess exited abnormally: ${runError}`);
+    }
+
+    const finalAnswer = extractFinalAnswerFromText(stdout);
+    let verdict: CriticVerdict;
+    let jCost = 0;
+    try {
+      const { verdict: v, usage } = await evaluateRun(this.judge, instance, workspacePath, finalAnswer);
+      verdict = v;
+      jCost = judgeCost(usage.promptTokens, usage.completionTokens);
+    } catch (e: any) {
+      verdict = { passed: false, score: 0, problems: [`Re-judge failed: ${e?.message ?? e}`], summary: 'Could not evaluate subprocess run.' };
+    }
+
+    const result: InstanceResult = { instance, verdict, workspacePath, error: runError };
+    return { result, agentCost: 0, judgeCost: jCost };
   }
 
   /** Reflect on this generation's failures to produce an evolved rule set. */
@@ -263,6 +352,33 @@ export class EvolutionEngine {
         ruleCount = rules.length;
       }
 
+      // CODE self-improvement: diagnose & patch dsca's OWN algorithm, re-validate,
+      // and (if it builds and improves) apply the change. Runs in addition to the
+      // guidance reflection above.
+      let codeChange: CodeImprovementRecord | undefined;
+      if (this.config.selfModify && this.config.repoRoot && failures.length > 0) {
+        const improver = new CodeImprover({
+          repoRoot: this.config.repoRoot,
+          llmConfig: this.config.llmConfig,
+          workRoot: this.config.workRoot,
+          fixerMaxSteps: this.config.fixerMaxSteps,
+          instanceMaxSteps: this.config.maxSteps,
+          allowedDomains: this.config.allowedDomains,
+          blockedCommands: this.config.blockedCommands,
+        }, this.judge);
+        const improveResult = await improver.attempt(failures, generation, cb);
+        genCost += improveResult.costUsd;
+        const { diagnosis: _diag, costUsd: _cost, ...rec } = improveResult;
+        codeChange = rec;
+        cb.onCodeImprovement?.(improveResult);
+        if (improveResult.applied) {
+          // Continue subsequent instance runs through the rebuilt CLI so they
+          // actually exercise the improved algorithm.
+          this.patchedCliEntry = path.join(this.config.repoRoot, 'packages', 'cli', 'dist', 'index.js');
+          cb.onLog?.('Code self-improvement applied — subsequent runs use the rebuilt algorithm.');
+        }
+      }
+
       const record: GenerationRecord = {
         generation,
         attempted: results.length,
@@ -273,6 +389,7 @@ export class EvolutionEngine {
         changeNote,
         costUsd: genCost,
         at: new Date().toISOString(),
+        ...(codeChange ? { codeChange } : {}),
       };
       this.store.appendHistory(record, failingIds);
       history.push(record);

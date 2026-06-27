@@ -3,3 +3,4 @@ export { loadBenchmark } from './benchmark.js';
 export { GuidanceStore } from './guidance.js';
 export { snapshotWorkspace, evaluateRun } from './evaluator.js';
 export { EvolutionEngine, EvolutionConfig } from './engine.js';
+export { CodeImprover, CodeImproverConfig } from './improver.js';

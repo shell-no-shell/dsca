@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as yaml from 'yaml';
 import * as readline from 'readline';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -562,6 +563,26 @@ toolCmd.command('create <name>')
   });
 
 // Evolve command (self-evolution mode)
+/**
+ * Locate dsca's own repo root for the code self-improvement phase. Walks up from
+ * the given start dir looking for a git working tree that also contains the
+ * monorepo markers (turbo.json + packages/core). Returns null if not found —
+ * which happens for a published/global install with no source tree.
+ */
+function detectRepoRoot(start: string): string | null {
+  let dir = start;
+  for (let i = 0; i < 8; i++) {
+    const hasGit = fs.existsSync(path.join(dir, '.git'));
+    const hasTurbo = fs.existsSync(path.join(dir, 'turbo.json'));
+    const hasCore = fs.existsSync(path.join(dir, 'packages', 'core'));
+    if (hasGit && hasTurbo && hasCore) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
 const evolveCmd = program
   .command('evolve')
   .description('Self-evolution mode: repeatedly run benchmark instances, critique the results, and evolve guidance rules from the failures')
@@ -572,6 +593,9 @@ const evolveCmd = program
   .option('--max-rules <n>', 'Max guidance rules to retain', '30')
   .option('--instance-max-steps <n>', 'Turn budget per instance run (large projects need headroom)', '200')
   .option('--workdir <path>', 'Root dir for per-instance workspaces', path.join(os.tmpdir(), 'dsca-evolve'))
+  .option('--self-modify', 'Enable code self-improvement: on failures, dsca diagnoses and patches its OWN algorithm (isolated worktree), rebuilds, re-validates, and keeps the change only if the score improves')
+  .option('--repo-root <path>', 'Path to dsca\'s own repo root (for --self-modify); auto-detected from the CLI install location if omitted')
+  .option('--fixer-max-steps <n>', 'Turn budget for the self-improvement fixer agent', '60')
   .option('--reset', 'Clear previously evolved guidance before starting')
   .action(async (options, command) => {
     const parentOpts = command.parent.opts();
@@ -606,11 +630,28 @@ const evolveCmd = program
     const passThreshold = Math.min(1, Math.max(0, parseFloat(options.passThreshold) || 0.9));
     const maxRules = Math.max(1, parseInt(options.maxRules, 10) || 30);
     const instanceMaxSteps = Math.max(20, parseInt(options.instanceMaxSteps, 10) || 200);
+    const fixerMaxSteps = Math.max(10, parseInt(options.fixerMaxSteps, 10) || 60);
     const workRoot = path.resolve(options.workdir);
+
+    // Resolve the code self-improvement settings.
+    let selfModify = Boolean(options.selfModify);
+    let repoRoot: string | undefined;
+    if (selfModify) {
+      const here = path.dirname(fileURLToPath(import.meta.url));
+      repoRoot = options.repoRoot
+        ? path.resolve(options.repoRoot)
+        : (detectRepoRoot(here) ?? detectRepoRoot(process.cwd()) ?? undefined);
+      if (!repoRoot || !fs.existsSync(path.join(repoRoot, 'packages', 'core'))) {
+        console.error(`${RED}--self-modify requires dsca's source repo, but it could not be located.${RESET}`);
+        console.error(`Pass --repo-root <path> pointing at your dsca checkout (the dir with turbo.json + packages/).`);
+        process.exit(1);
+      }
+    }
 
     console.log(`${BOLD}DS-CodeAgent · Self-Evolution${RESET}`);
     console.log(`${DIM}Instances: ${instances.length} loaded · sample ${sample}/gen · up to ${generations} generations · pass≥${(passThreshold * 100).toFixed(0)}%${RESET}`);
     console.log(`${DIM}Workspaces: ${workRoot}${RESET}`);
+    if (selfModify) console.log(`${DIM}Code self-improvement: ${YELLOW}ON${RESET}${DIM} · repo ${repoRoot}${RESET}`);
     console.log(`${DIM}Starting from ${store.rules().length} existing guidance rule(s)${RESET}\n`);
 
     const engine = new EvolutionEngine(
@@ -638,6 +679,9 @@ const evolveCmd = program
         maxSteps: instanceMaxSteps,
         allowedDomains: config.security.allowedDomains,
         blockedCommands: config.security.blockedCommands,
+        selfModify,
+        repoRoot,
+        fixerMaxSteps,
       },
       store
     );
@@ -656,10 +700,26 @@ const evolveCmd = program
             console.log(`     ${YELLOW}• ${p}${RESET}`);
           }
         },
+        onCodeImprovement: (r) => {
+          const head = r.applied
+            ? `${GREEN}✔ APPLIED${RESET}`
+            : (r.buildOk ? `${YELLOW}↩ REVERTED${RESET}` : `${RED}✗ DISCARDED${RESET}`);
+          console.log(`\n${BOLD}${MAGENTA}━ Code self-improvement ━${RESET} ${head}`);
+          console.log(`  Target instance ${r.targetInstanceId}: score ${r.baselineScore}${r.newScore !== null ? ` → ${r.newScore}` : ''}`);
+          if (r.changedFiles.length > 0) console.log(`  Changed: ${DIM}${r.changedFiles.join(', ')}${RESET}`);
+          console.log(`  ${DIM}${r.reason}${RESET}`);
+          if (r.diagnosis) {
+            const oneLine = r.diagnosis.replace(/\s+/g, ' ').slice(0, 200);
+            console.log(`  ${DIM}Diagnosis: ${oneLine}${oneLine.length >= 200 ? '…' : ''}${RESET}`);
+          }
+        },
         onGeneration: (record) => {
           console.log(`\n${BOLD}${MAGENTA}━━ Generation ${record.generation} ━━${RESET}`);
           console.log(`  Pass rate: ${BOLD}${(record.passRate * 100).toFixed(0)}%${RESET} (${record.passed}/${record.attempted}) · avg score ${record.avgScore.toFixed(0)}/100`);
           console.log(`  Guidance rules: ${record.ruleCount} · ${DIM}${record.changeNote}${RESET}`);
+          if (record.codeChange) {
+            console.log(`  Code change: ${record.codeChange.applied ? `${GREEN}applied${RESET}` : `${DIM}none kept${RESET}`}`);
+          }
           console.log(`  Cost: ${GREEN}$${record.costUsd.toFixed(4)}${RESET}`);
         },
       });

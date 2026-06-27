@@ -53,6 +53,28 @@ export interface GenerationRecord {
   changeNote: string;
   costUsd: number;
   at: string;
+  /** Set when a code self-modification was attempted this generation. */
+  codeChange?: CodeImprovementRecord;
+}
+
+/** Lightweight record of a code self-modification, persisted in history. */
+export interface CodeImprovementRecord {
+  generation: number;
+  applied: boolean;
+  buildOk: boolean;
+  targetInstanceId: string;
+  baselineScore: number;
+  newScore: number | null;
+  changedFiles: string[];
+  reason: string;
+  at: string;
+}
+
+/** Full result of a code self-improvement attempt (includes the diagnosis text). */
+export interface CodeImprovementResult extends CodeImprovementRecord {
+  /** The agent's Final Answer explaining its diagnosis and fix. */
+  diagnosis: string;
+  costUsd: number;
 }
 
 export interface EvolutionCallbacks {
@@ -60,4 +82,6 @@ export interface EvolutionCallbacks {
   onInstanceStart?: (instance: BenchmarkInstance, index: number, total: number) => void;
   onInstanceResult?: (result: InstanceResult) => void;
   onGeneration?: (record: GenerationRecord) => void;
+  /** Fired after a code self-modification attempt completes (applied or reverted). */
+  onCodeImprovement?: (result: CodeImprovementResult) => void;
 }

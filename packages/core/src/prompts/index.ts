@@ -16,3 +16,9 @@ export {
 } from './runner-prompts.js';
 export { COMPRESSION_SYSTEM_PROMPT, wrapCompressedSummary, SUMMARY_MARKER } from './compression.js';
 export { EVOLUTION_CRITIC_PROMPT, EVOLUTION_REFLECT_PROMPT, buildEvolvedGuidancePrompt } from './evolution.js';
+export {
+  buildSelfImproveTask,
+  SELF_IMPROVE_ALLOWED_PATHS,
+  SELF_IMPROVE_FORBIDDEN_PATHS,
+  SelfImproveFailure,
+} from './selfimprove.js';

@@ -109,6 +109,21 @@ export function snapshotWorkspace(root: string): string {
   return `${manifest}\n\n${contentHeader}\n${parts.join('\n')}`;
 }
 
+/**
+ * Build the task prompt for an instance, making the REQUIRED tech stack explicit
+ * and non-negotiable. The benchmark's `stack` column (e.g. "Vue3/Go") was being
+ * ignored by the agent — runs used React instead of Vue3 or Node instead of Go
+ * and were failed for it. Stating the constraint up front fixes that. Shared by
+ * the evolution engine and the code self-improver's re-validation.
+ */
+export function buildInstanceTask(instance: BenchmarkInstance): string {
+  const stack = instance.stack?.trim();
+  const stackLine = stack
+    ? `REQUIRED TECH STACK (mandatory — do NOT substitute any other language or framework): ${stack}\n\n`
+    : '';
+  return `${stackLine}${instance.description}\n\nDeliver a complete, runnable project: implement every feature the task lists, create real working code (no empty stubs or TODO placeholders), and include the dependency manifest and entry point for the required stack.`;
+}
+
 function tryParseVerdict(raw: string): CriticVerdict | null {
   let text = raw.trim();
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
