@@ -33,9 +33,33 @@ export interface EvolutionConfig {
   workRoot: string;
   /** Max guidance rules to keep. */
   maxRules: number;
+  /**
+   * Turn budget for each agent run. Benchmark instances are large multi-component
+   * projects, so this defaults high (200) to avoid the run being cut off mid-build
+   * — a truncated run produces a half-finished project and an unfair FAIL.
+   */
+  maxSteps?: number;
   /** Allowlisted domains / blocked commands forwarded to each agent run. */
   allowedDomains?: string[];
   blockedCommands?: string[];
+}
+
+/** Default per-instance turn budget when none is configured. */
+const DEFAULT_INSTANCE_MAX_STEPS = 200;
+
+/**
+ * Build the task prompt for an instance, making the REQUIRED tech stack explicit
+ * and non-negotiable. The benchmark's `stack` column (e.g. "Vue3/Go",
+ * "Java/React") was being ignored by the agent — runs repeatedly used React
+ * instead of Vue3 or Node instead of Go and were failed for it. Stating the
+ * constraint up front, separate from the prose description, fixes that.
+ */
+function buildInstanceTask(instance: BenchmarkInstance): string {
+  const stack = instance.stack?.trim();
+  const stackLine = stack
+    ? `REQUIRED TECH STACK (mandatory — do NOT substitute any other language or framework): ${stack}\n\n`
+    : '';
+  return `${stackLine}${instance.description}\n\nDeliver a complete, runnable project: implement every feature the task lists, create real working code (no empty stubs or TODO placeholders), and include the dependency manifest and entry point for the required stack.`;
 }
 
 function extractFinalAnswer(messages: { role: string; content: string }[]): string {
@@ -118,6 +142,7 @@ export class EvolutionEngine {
       llmConfig: this.config.llmConfig,
       workspacePath,
       confirmAll: true, // unattended: high-danger tools auto-approved within the sandbox
+      maxSteps: this.config.maxSteps ?? DEFAULT_INSTANCE_MAX_STEPS,
       allowedDomains: this.config.allowedDomains,
       blockedCommands: this.config.blockedCommands,
     });
@@ -127,7 +152,7 @@ export class EvolutionEngine {
     let runError: string | undefined;
 
     try {
-      const session = await agent.run(instance.description, 'auto', {
+      const session = await agent.run(buildInstanceTask(instance), 'auto', {
         onLog: (m) => cb.onLog?.(`  [inst ${instance.id}] ${m}`),
       });
       agentCost = session.tokenUsage.totalCostUsd;

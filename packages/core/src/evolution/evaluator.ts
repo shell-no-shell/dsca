@@ -4,17 +4,50 @@ import { LLMClient } from '../llm/client.js';
 import { EVOLUTION_CRITIC_PROMPT } from '../prompts/index.js';
 import { BenchmarkInstance, CriticVerdict } from './types.js';
 
-const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'target', '__pycache__', '.trash', 'venv', '.venv']);
-const MAX_FILES = 40;
-const MAX_TOTAL_CHARS = 16000;
-const MAX_FILE_CHARS = 2000;
+const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'target', '__pycache__', '.trash', 'venv', '.venv', '.next', 'coverage', '.cache']);
+// The manifest (file tree) is the authoritative view of completeness, so it is
+// listed in full up to a high cap. Content is a larger bounded *sample* — enough
+// for the critic to judge correctness without blowing the context window.
+const MAX_MANIFEST_FILES = 400;
+const MAX_CONTENT_FILES = 80;
+const MAX_TOTAL_CHARS = 48000;
+const MAX_FILE_CHARS = 3500;
 
-/** Collect a bounded, text-only snapshot of what the agent produced. */
+/** Files most worth showing in full first (entry points, config, core logic). */
+const PRIORITY_HINTS = [
+  'main.', 'app.', 'server.', 'index.', 'package.json', 'requirements.txt',
+  'go.mod', 'pom.xml', 'docker-compose', 'dockerfile', 'router', 'route',
+  'schema', 'model', 'config', '.vue', 'store',
+];
+
+function priorityRank(rel: string): number {
+  const lower = rel.toLowerCase();
+  for (let i = 0; i < PRIORITY_HINTS.length; i++) {
+    if (lower.includes(PRIORITY_HINTS[i])) return i;
+  }
+  return PRIORITY_HINTS.length;
+}
+
+/**
+ * Collect a snapshot of what the agent produced.
+ *
+ * Two parts:
+ *  1. A COMPLETE file-tree manifest (every file + byte size) — the authoritative
+ *     view of how much was actually built, so the critic can assess completeness
+ *     even when individual file contents are sampled.
+ *  2. A bounded CONTENT sample of the most informative files, prioritising entry
+ *     points / config / core logic, for judging correctness.
+ *
+ * The previous version capped at 40 files / 16KB and showed only raw content, so
+ * for a 30-50 file full-stack project the critic saw ~8 files and wrongly
+ * concluded "the project is incomplete" — penalising the agent for the
+ * evaluator's own truncation. The manifest fixes that false-negative.
+ */
 export function snapshotWorkspace(root: string): string {
-  const files: string[] = [];
+  const all: { rel: string; size: number }[] = [];
 
   function walk(dir: string): void {
-    if (files.length >= MAX_FILES) return;
+    if (all.length >= MAX_MANIFEST_FILES) return;
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -22,44 +55,58 @@ export function snapshotWorkspace(root: string): string {
       return;
     }
     for (const entry of entries) {
-      if (files.length >= MAX_FILES) return;
+      if (all.length >= MAX_MANIFEST_FILES) return;
       if (entry.name.startsWith('.') && entry.name !== '.env.example') continue;
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (SKIP_DIRS.has(entry.name)) continue;
         walk(full);
       } else if (entry.isFile()) {
-        files.push(full);
+        let size = 0;
+        try { size = fs.statSync(full).size; } catch { /* ignore */ }
+        all.push({ rel: path.relative(root, full), size });
       }
     }
   }
   walk(root);
 
-  if (files.length === 0) return '(the workspace is empty — the agent produced no files)';
+  if (all.length === 0) return '(the workspace is empty — the agent produced no files)';
+
+  // 1. Full manifest, sorted by path.
+  const sorted = [...all].sort((a, b) => a.rel.localeCompare(b.rel));
+  const manifestLines = sorted.map(f => `  ${f.rel} (${f.size} bytes)`).join('\n');
+  const totalBytes = all.reduce((s, f) => s + f.size, 0);
+  const manifest = `## FILE TREE — ${all.length} file(s), ${totalBytes} bytes total (complete listing)\n${manifestLines}`;
+
+  // 2. Content sample, priority files first.
+  const ordered = [...all]
+    .filter(f => f.size > 0)
+    .sort((a, b) => priorityRank(a.rel) - priorityRank(b.rel) || a.rel.localeCompare(b.rel))
+    .slice(0, MAX_CONTENT_FILES);
 
   const parts: string[] = [];
   let totalChars = 0;
-  for (const file of files) {
-    if (totalChars >= MAX_TOTAL_CHARS) {
-      parts.push(`\n... (${files.length} files total; remaining files omitted to fit budget) ...`);
-      break;
-    }
-    const rel = path.relative(root, file);
+  let shown = 0;
+  for (const f of ordered) {
+    if (totalChars >= MAX_TOTAL_CHARS) break;
     let content = '';
     try {
-      content = fs.readFileSync(file, 'utf-8');
+      content = fs.readFileSync(path.join(root, f.rel), 'utf-8');
     } catch {
       continue; // binary or unreadable
     }
     if (content.length > MAX_FILE_CHARS) {
-      content = content.slice(0, MAX_FILE_CHARS) + '\n... (truncated) ...';
+      content = content.slice(0, MAX_FILE_CHARS) + `\n... (file continues — ${f.size} bytes total) ...`;
     }
-    const block = `--- FILE: ${rel} ---\n${content}\n`;
+    const block = `--- FILE: ${f.rel} ---\n${content}\n`;
     totalChars += block.length;
     parts.push(block);
+    shown++;
   }
 
-  return parts.join('\n');
+  const contentHeader = `## FILE CONTENTS — showing ${shown} of ${all.length} file(s) (a representative sample; rely on the FILE TREE above to judge overall completeness)`;
+
+  return `${manifest}\n\n${contentHeader}\n${parts.join('\n')}`;
 }
 
 function tryParseVerdict(raw: string): CriticVerdict | null {

@@ -212,6 +212,7 @@ dsca evolve status
 | `--generations <n>` | `3` | 最大代数 |
 | `--pass-threshold <r>` | `0.9` | 某一代通过率达到该值即提前停止(0–1) |
 | `--max-rules <n>` | `30` | 保留的最大规则条数 |
+| `--instance-max-steps <n>` | `200` | 每个实例运行的回合预算(大型项目需要更大余量,避免中途被截断) |
 | `--workdir <path>` | 系统临时目录 | 每个实例工作区的根目录 |
 | `--reset` | — | 开始前清空已进化的规则 |
 

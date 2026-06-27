@@ -570,6 +570,7 @@ const evolveCmd = program
   .option('--generations <n>', 'Max generations to run', '3')
   .option('--pass-threshold <r>', 'Stop early once a generation reaches this pass rate (0-1)', '0.9')
   .option('--max-rules <n>', 'Max guidance rules to retain', '30')
+  .option('--instance-max-steps <n>', 'Turn budget per instance run (large projects need headroom)', '200')
   .option('--workdir <path>', 'Root dir for per-instance workspaces', path.join(os.tmpdir(), 'dsca-evolve'))
   .option('--reset', 'Clear previously evolved guidance before starting')
   .action(async (options, command) => {
@@ -604,6 +605,7 @@ const evolveCmd = program
     const generations = Math.max(1, parseInt(options.generations, 10) || 3);
     const passThreshold = Math.min(1, Math.max(0, parseFloat(options.passThreshold) || 0.9));
     const maxRules = Math.max(1, parseInt(options.maxRules, 10) || 30);
+    const instanceMaxSteps = Math.max(20, parseInt(options.instanceMaxSteps, 10) || 200);
     const workRoot = path.resolve(options.workdir);
 
     console.log(`${BOLD}DS-CodeAgent · Self-Evolution${RESET}`);
@@ -633,6 +635,7 @@ const evolveCmd = program
         passThreshold,
         workRoot,
         maxRules,
+        maxSteps: instanceMaxSteps,
         allowedDomains: config.security.allowedDomains,
         blockedCommands: config.security.blockedCommands,
       },

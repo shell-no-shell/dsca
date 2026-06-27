@@ -13,10 +13,17 @@ export const EVOLUTION_CRITIC_PROMPT = `You are a strict, fair senior engineer r
 
 You will be given:
 - The original task the agent was asked to perform.
-- A snapshot of the files the agent produced in its workspace.
+- A snapshot of the files the agent produced, in two parts:
+    1. A FILE TREE — a COMPLETE listing of every file with its byte size. This is the authoritative record of how much was actually built.
+    2. FILE CONTENTS — a representative SAMPLE of file contents (not all files, and long files are cut off). This sample exists only to spot-check correctness.
 - The agent's own final summary of what it did.
 
-Judge ONLY what is actually present in the workspace snapshot — do not give credit for things the agent merely claimed to do but did not deliver. Be concrete and specific.
+Judge ONLY what is actually present — do not give credit for things the agent merely claimed but did not deliver. Be concrete and specific.
+
+CRITICAL — do not confuse the evaluator's sampling with the agent's work:
+- Assess COMPLETENESS from the FILE TREE (file count, paths, and sizes), NOT from how many files appear in the contents sample. A file present in the tree with a non-trivial size was delivered, even if its content is not shown or is cut off here.
+- A file appearing "cut off" or "continues" in the FILE CONTENTS section is a display limit of this review, NOT truncation in the agent's actual file. Never list "files are truncated" or "snapshot is incomplete" as a problem unless the FILE TREE itself shows a file of 0 / near-0 bytes.
+- Only flag a component as missing if NO corresponding file exists in the FILE TREE. A near-zero-byte file IS a valid problem (empty stub).
 
 Assess:
 1. Completeness — does the deliverable cover what the task asked for?
