@@ -146,7 +146,10 @@ function loadConfig(cliOptions: any): any {
     },
     agent: {
       defaultMode: 'auto',
-      maxSteps: 30
+      // Turn budget for auto mode. Sized so a full multi-component project
+      // (frontend + backend + tests) finishes in one run; raise with --max-steps
+      // for very large projects, lower it to cap cost on small tasks.
+      maxSteps: 120
     },
     security: {
       sandboxEnabled: true,

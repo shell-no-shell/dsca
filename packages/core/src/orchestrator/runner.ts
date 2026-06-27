@@ -524,7 +524,15 @@ Work through this task to completion on your own. For anything beyond a trivial 
 
     let noToolStreak = 0;
 
-    for (let turn = 0; turn < CodeAgent.MAX_AUTO_TURNS; turn++) {
+    // Honor a configured turn budget (e.g. --max-steps); fall back to the default.
+    // Large full-stack projects need enough turns to build every component — too
+    // small a budget cuts the run off mid-build, leaving a half-finished project
+    // (e.g. frontend done but backend missing).
+    const maxTurns = this.config.maxSteps && this.config.maxSteps > 0
+      ? this.config.maxSteps
+      : CodeAgent.MAX_AUTO_TURNS;
+
+    for (let turn = 0; turn < maxTurns; turn++) {
       await this.maybeCompressContext(session, cb);
       this.injectTodoReminder(session);
       this.transition('THINKING', cb);
@@ -592,7 +600,7 @@ Work through this task to completion on your own. For anything beyond a trivial 
       session.messages.push({ role: 'user', content: AGENT_NUDGE_PROMPT });
     }
 
-    cb.onLog?.(`Reached the ${CodeAgent.MAX_AUTO_TURNS}-turn limit for auto mode; stopping.`);
+    cb.onLog?.(`Reached the ${maxTurns}-turn limit for auto mode; stopping. The task may be incomplete — raise the budget with --max-steps (e.g. --max-steps 150) for large multi-component projects.`);
   }
 
   // ── Adaptive (auto) loop helpers ──
@@ -600,8 +608,12 @@ Work through this task to completion on your own. For anything beyond a trivial 
   /** Marker prefix identifying the injected todo-state reminder message. */
   private static readonly TODO_REMINDER_MARKER = '<system-reminder: task-list>';
 
-  /** Max LLM turns for the adaptive auto loop before giving up. */
-  private static readonly MAX_AUTO_TURNS = 50;
+  /**
+   * Default max LLM turns for the adaptive auto loop before giving up.
+   * Sized so a full multi-component project (e.g. frontend + backend + tests)
+   * can be built in one run. Overridable per-run via config.maxSteps (--max-steps).
+   */
+  private static readonly MAX_AUTO_TURNS = 120;
 
   /** Render a todo list as a human/model-readable checklist. */
   private static renderTodos(todos: TodoItem[]): string {
