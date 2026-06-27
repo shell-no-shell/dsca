@@ -4,6 +4,7 @@ import { ContextManager } from '../context/manager.js';
 import { SecuritySandbox } from '../sandbox/security.js';
 import { Session, SessionStore, ChatMessage, Step, TodoItem } from '../session/db.js';
 import { MemoryStore } from '../session/memory.js';
+import { GuidanceStore } from '../evolution/guidance.js';
 import {
   buildExtraContextPrompt,
   buildStepPrompt,
@@ -112,6 +113,8 @@ export interface CodeAgentConfig {
   confirmAll?: boolean;
   /** MCP server configurations for external tool servers */
   mcpServers?: McpServerConfig[];
+  /** Inject evolved guidance rules from the self-evolution store. Defaults to true. */
+  useEvolvedGuidance?: boolean;
 }
 
 // DeepSeek pricing (per 1M tokens)
@@ -133,6 +136,7 @@ export class CodeAgent {
   private sandbox: SecuritySandbox;
   private sessionStore: SessionStore;
   private memoryStore: MemoryStore;
+  private guidanceStore: GuidanceStore;
   private mcpAdapters: McpAdapter[] = [];
   private state: AgentState = 'IDLE';
   private initialized = false;
@@ -151,6 +155,7 @@ export class CodeAgent {
     });
     this.sessionStore = new SessionStore();
     this.memoryStore = new MemoryStore();
+    this.guidanceStore = new GuidanceStore();
   }
 
   /**
@@ -268,6 +273,14 @@ export class CodeAgent {
         }
       }
 
+      let evolvedGuidance = '';
+      if (this.config.useEvolvedGuidance !== false) {
+        evolvedGuidance = this.guidanceStore.renderForPrompt();
+        if (evolvedGuidance) {
+          cb.onLog?.(`Applied ${this.guidanceStore.rules().length} evolved guidance rule(s) from past runs`);
+        }
+      }
+
       const promptContext: PromptContext = {
         workspacePath: this.config.workspacePath,
         os: os.platform(),
@@ -275,7 +288,8 @@ export class CodeAgent {
         nodeVersion: process.version,
         tools: activeTools,
         deferredTools,
-        extraContext
+        extraContext,
+        evolvedGuidance
       };
 
       const systemPrompt = PromptBuilder.buildSystemPrompt(mode, promptContext);

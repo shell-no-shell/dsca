@@ -12,6 +12,7 @@
 - **MCP 支持**:可接入外部 MCP(Model Context Protocol)工具服务器。
 - **上下文压缩**:接近上下文窗口上限时自动压缩历史消息。
 - **会话历史与长期记忆**:记录每次会话,并从完成的会话中提取可复用的记忆。
+- **自进化模式(Self-Evolution)**:基于 500 实例基准集循环「运行 → 评判 → 反思 → 进化」,把失败案例提炼为持久化的指导规则,并在后续每次运行中自动注入系统提示,让 Agent 越跑越好(见下文)。
 - **安全沙箱**:对危险操作(删除文件、shell 命令等)进行确认拦截,可配置允许域名 / 屏蔽命令。
 - **成本统计**:每次运行结束输出 token 用量与预估费用。
 
@@ -21,7 +22,7 @@
 
 ```
 packages/
-  core/    @dsca/core   —— 核心编排引擎(Agent、LLM 客户端、Prompt、上下文、会话、沙箱)
+  core/    @dsca/core   —— 核心编排引擎(Agent、LLM 客户端、Prompt、上下文、会话、沙箱、自进化引擎)
   tools/   @dsca/tools  —— 工具注册表与 18 个内置工具,以及 MCP 适配器
   cli/     ds-code-agent-cli —— 命令行入口(bin: dsca)
   sdk/     @dsca/sdk    —— 面向 Node.js 的编程式 SDK,重导出 core/tools 的公共 API
@@ -164,6 +165,57 @@ dsca tool install <pkg>        # 从 npm 或本地路径安装技能
 dsca tool uninstall <name>     # 卸载技能
 dsca tool create <name>        # 脚手架生成新技能项目
 ```
+
+## 自进化模式(Self-Evolution)
+
+`dsca evolve` 让 Agent 在 `test_project/code_agent_benchmark_500.csv` 这个 500 实例基准集上**自我训练**:不断循环执行实例、评判结果、从失败中反思,并把经验沉淀成持久化的指导规则,后续每次运行(包括普通的 `auto`/`plan`)都会自动加载这些规则,从而越用越好。
+
+### 工作原理
+
+每一「代(generation)」执行一轮闭环:
+
+1. **运行(Run)** —— 采样若干实例,在隔离的临时工作目录中以 `auto` 模式自动跑完(自动确认所有操作)。
+2. **评判(Critique)** —— 由 LLM 充当评审,对照工作区产物与最终回答,给出通过/失败的判定与原因。
+3. **反思(Reflect)** —— 将失败案例提炼为简洁、可复用的**指导规则(guidance rules)**。
+4. **进化(Evolve)** —— 规则持久化到 `~/.dsca/evolution/`,并自动注入系统提示;下一代会**优先重跑此前失败的实例**。
+5. **循环** —— 重复以上步骤,直到达到通过率阈值或最大代数。
+
+进化产物保存在:
+
+```
+~/.dsca/evolution/state.json    # 当前规则 + 各代历史记录
+~/.dsca/evolution/guidance.md   # 人类可读的规则清单
+```
+
+### 使用
+
+```bash
+# 用默认参数开始自进化(每代 5 个实例,最多 3 代,通过率阈值 0.9)
+dsca evolve
+
+# 自定义采样数与代数
+dsca evolve --sample 10 --generations 5
+
+# 清空此前进化出的规则后重新开始
+dsca evolve --reset
+
+# 查看当前已进化出的规则与历史
+dsca evolve status
+```
+
+### 选项
+
+| 选项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `--instances <path>` | `test_project/code_agent_benchmark_500.csv` | 基准集 CSV 路径 |
+| `--sample <n>` | `5` | 每代运行的实例数 |
+| `--generations <n>` | `3` | 最大代数 |
+| `--pass-threshold <r>` | `0.9` | 某一代通过率达到该值即提前停止(0–1) |
+| `--max-rules <n>` | `30` | 保留的最大规则条数 |
+| `--workdir <path>` | 系统临时目录 | 每个实例工作区的根目录 |
+| `--reset` | — | 开始前清空已进化的规则 |
+
+> 注意:`evolve` 会产生较多 DeepSeek API 调用(每个实例 = 一次完整 Agent 运行 + 一次评审调用),运行结束会输出累计 token 用量与预估费用。
 
 ## 内置工具(18 个)
 

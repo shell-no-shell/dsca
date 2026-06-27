@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { CodeAgent, AgentState, Step, SessionStore } from '@dsca/core';
+import { CodeAgent, AgentState, Step, SessionStore, EvolutionEngine, GuidanceStore, loadBenchmark } from '@dsca/core';
 import { ToolLoader, createFullRegistry } from '@dsca/tools';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -555,6 +555,150 @@ toolCmd.command('create <name>')
     } catch (e: any) {
       console.error(`Failed to create skill: ${e.message}`);
       process.exit(1);
+    }
+  });
+
+// Evolve command (self-evolution mode)
+const evolveCmd = program
+  .command('evolve')
+  .description('Self-evolution mode: repeatedly run benchmark instances, critique the results, and evolve guidance rules from the failures')
+  .option('--instances <path>', 'Path to the benchmark CSV', path.join(process.cwd(), 'test_project', 'code_agent_benchmark_500.csv'))
+  .option('--sample <n>', 'Instances to run per generation', '5')
+  .option('--generations <n>', 'Max generations to run', '3')
+  .option('--pass-threshold <r>', 'Stop early once a generation reaches this pass rate (0-1)', '0.9')
+  .option('--max-rules <n>', 'Max guidance rules to retain', '30')
+  .option('--workdir <path>', 'Root dir for per-instance workspaces', path.join(os.tmpdir(), 'dsca-evolve'))
+  .option('--reset', 'Clear previously evolved guidance before starting')
+  .action(async (options, command) => {
+    const parentOpts = command.parent.opts();
+    const config = loadConfig({ ...parentOpts, ...options });
+
+    if (!config.llm.apiKey) {
+      console.error('Error: DEEPSEEK_API_KEY is not set. Set it in environment, .env file, or ~/.dsca/config.yaml');
+      process.exit(1);
+    }
+
+    const csvPath = path.resolve(options.instances);
+    if (!fs.existsSync(csvPath)) {
+      console.error(`${RED}Benchmark CSV not found: ${csvPath}${RESET}`);
+      console.error('Pass a path with --instances <path> (expects columns: ID,分类,平台/语言,案例描述).');
+      process.exit(1);
+    }
+
+    const instances = loadBenchmark(csvPath);
+    if (instances.length === 0) {
+      console.error(`${RED}No instances parsed from ${csvPath}.${RESET}`);
+      process.exit(1);
+    }
+
+    const store = new GuidanceStore();
+    if (options.reset) {
+      store.save({ generation: 0, rules: [], history: [], failingIds: [], updatedAt: new Date().toISOString() });
+      console.log(`${YELLOW}Evolved guidance reset.${RESET}`);
+    }
+
+    const sample = Math.max(1, parseInt(options.sample, 10) || 5);
+    const generations = Math.max(1, parseInt(options.generations, 10) || 3);
+    const passThreshold = Math.min(1, Math.max(0, parseFloat(options.passThreshold) || 0.9));
+    const maxRules = Math.max(1, parseInt(options.maxRules, 10) || 30);
+    const workRoot = path.resolve(options.workdir);
+
+    console.log(`${BOLD}DS-CodeAgent · Self-Evolution${RESET}`);
+    console.log(`${DIM}Instances: ${instances.length} loaded · sample ${sample}/gen · up to ${generations} generations · pass≥${(passThreshold * 100).toFixed(0)}%${RESET}`);
+    console.log(`${DIM}Workspaces: ${workRoot}${RESET}`);
+    console.log(`${DIM}Starting from ${store.rules().length} existing guidance rule(s)${RESET}\n`);
+
+    const engine = new EvolutionEngine(
+      {
+        llmConfig: {
+          provider: config.llm.provider,
+          apiKey: config.llm.apiKey,
+          baseUrl: config.llm.baseUrl,
+          defaultModel: config.llm.defaultModel,
+          fallbackModel: config.llm.fallbackModel,
+          temperature: config.llm.temperature,
+          maxTokens: config.llm.maxTokens,
+          retryCount: config.llm.retryCount,
+          retryDelay: config.llm.retryDelay,
+          timeout: config.llm.timeout,
+          contextWindowSize: config.llm.contextWindowSize,
+          compressionThreshold: config.llm.compressionThreshold,
+        },
+        instances,
+        sampleSize: sample,
+        maxGenerations: generations,
+        passThreshold,
+        workRoot,
+        maxRules,
+        allowedDomains: config.security.allowedDomains,
+        blockedCommands: config.security.blockedCommands,
+      },
+      store
+    );
+
+    try {
+      const history = await engine.run({
+        onLog: (msg) => console.log(`${DIM}${msg}${RESET}`),
+        onInstanceStart: (instance, index, total) => {
+          console.log(`\n${CYAN}▶ [${index}/${total}] Instance ${instance.id}${RESET} ${DIM}[${instance.category}/${instance.stack}]${RESET}`);
+          console.log(`  ${DIM}${instance.description.slice(0, 120)}${instance.description.length > 120 ? '…' : ''}${RESET}`);
+        },
+        onInstanceResult: (result) => {
+          const mark = result.verdict.passed ? `${GREEN}✅ PASS${RESET}` : `${RED}❌ FAIL${RESET}`;
+          console.log(`  ${mark} ${DIM}score ${result.verdict.score}/100 — ${result.verdict.summary}${RESET}`);
+          for (const p of result.verdict.problems.slice(0, 3)) {
+            console.log(`     ${YELLOW}• ${p}${RESET}`);
+          }
+        },
+        onGeneration: (record) => {
+          console.log(`\n${BOLD}${MAGENTA}━━ Generation ${record.generation} ━━${RESET}`);
+          console.log(`  Pass rate: ${BOLD}${(record.passRate * 100).toFixed(0)}%${RESET} (${record.passed}/${record.attempted}) · avg score ${record.avgScore.toFixed(0)}/100`);
+          console.log(`  Guidance rules: ${record.ruleCount} · ${DIM}${record.changeNote}${RESET}`);
+          console.log(`  Cost: ${GREEN}$${record.costUsd.toFixed(4)}${RESET}`);
+        },
+      });
+
+      console.log(`\n${BOLD}${GREEN}━━━ Evolution Complete ━━━${RESET}`);
+      if (history.length > 0) {
+        const first = history[0];
+        const last = history[history.length - 1];
+        console.log(`Pass rate: ${(first.passRate * 100).toFixed(0)}% → ${BOLD}${(last.passRate * 100).toFixed(0)}%${RESET} over ${history.length} generation(s)`);
+        const totalCost = history.reduce((s, r) => s + r.costUsd, 0);
+        console.log(`Total cost: ${GREEN}$${totalCost.toFixed(4)}${RESET}`);
+      }
+      const finalRules = store.rules();
+      console.log(`\n${BOLD}Evolved guidance (${finalRules.length} rule(s)):${RESET}`);
+      finalRules.forEach((r, i) => console.log(`  ${CYAN}${i + 1}.${RESET} ${r.rule}`));
+      console.log(`\n${DIM}Guidance is now applied automatically to every future \`dsca\` run.${RESET}`);
+      console.log(`${DIM}Saved to ~/.dsca/evolution/ (state.json, guidance.md).${RESET}`);
+    } catch (error: any) {
+      console.error(`\n${RED}Evolution failed: ${error.message}${RESET}`);
+      if (parentOpts.verbose && error.stack) console.error(error.stack);
+      process.exit(1);
+    }
+  });
+
+// Show current evolved guidance + history
+evolveCmd
+  .command('status')
+  .description('Show the current evolved guidance rules and generation history')
+  .action(() => {
+    const store = new GuidanceStore();
+    const state = store.load();
+    console.log(`${BOLD}Evolved Guidance${RESET} ${DIM}(generation ${state.generation}, ${state.rules.length} rules)${RESET}\n`);
+    if (state.rules.length === 0) {
+      console.log('No guidance yet. Run `dsca evolve` to start self-evolution.');
+    } else {
+      state.rules.forEach((r, i) => {
+        console.log(`  ${CYAN}${i + 1}.${RESET} ${r.rule}`);
+        console.log(`     ${DIM}${r.rationale} (gen ${r.generation})${RESET}`);
+      });
+    }
+    if (state.history.length > 0) {
+      console.log(`\n${BOLD}History${RESET}`);
+      for (const h of state.history) {
+        console.log(`  gen ${h.generation}: ${(h.passRate * 100).toFixed(0)}% pass (${h.passed}/${h.attempted}), ${h.ruleCount} rules, $${h.costUsd.toFixed(4)}`);
+      }
     }
   });
 

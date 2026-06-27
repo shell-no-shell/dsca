@@ -6,3 +6,4 @@ export * from './sandbox/security.js';
 export * from './session/db.js';
 export * from './session/memory.js';
 export * from './orchestrator/runner.js';
+export * from './evolution/index.js';

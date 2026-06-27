@@ -23,6 +23,8 @@ export interface PromptContext {
   /** Tools available but deferred (compact catalog only, no schemas in prompt) */
   deferredTools?: ITool[];
   extraContext?: string;
+  /** Pre-rendered EVOLVED GUIDANCE block injected from the self-evolution store. */
+  evolvedGuidance?: string;
 }
 
 export class PromptBuilder {
@@ -62,6 +64,8 @@ export class PromptBuilder {
 
     const extraBlock = ctx.extraContext ? `### PROJECT CONTEXT ###\n${ctx.extraContext}` : '';
 
+    const guidanceBlock = ctx.evolvedGuidance || '';
+
     return [
       identityBlock,
       methodologyBlock,
@@ -69,7 +73,8 @@ export class PromptBuilder {
       toolsBlock,
       constraintsBlock,
       formatBlock,
-      extraBlock
+      extraBlock,
+      guidanceBlock
     ].filter(Boolean).join('\n\n');
   }
 }
